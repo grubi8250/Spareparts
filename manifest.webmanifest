@@ -1,0 +1,20 @@
+{
+  "id": "./",
+  "name": "SpareParts – TASKI Ersatzteilkatalog",
+  "short_name": "SpareParts",
+  "description": "Ersatzteilkatalog mit klickbaren Zeichnungen und Merkliste – auch offline",
+  "lang": "de-AT",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#202226",
+  "theme_color": "#202226",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

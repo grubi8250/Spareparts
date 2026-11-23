@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#202226">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="SpareParts">
+  <meta name="description" content="Offline-Ersatzteilkatalog mit Explosionszeichnungen, antippbaren Artikelnummern und Merkliste.">
+  <link rel="icon" type="image/png" href="icon.png">
+  <link rel="apple-touch-icon" href="icon.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="style.css">
+  <title>SpareParts · Ersatzteilkatalog</title>
+</head>
+<body>
+  <header class="app-header">
+    <img class="brand-mark" src="taski-logo.png" alt="TASKI">
+    <div class="brand-text"><strong>SpareParts</strong><span>TASKI Ersatzteilkatalog</span></div>
+    <span id="onlineStatus" class="status-pill" aria-label="Verbindungsstatus"></span>
+  </header>
+  <main id="app" aria-live="polite"><div class="loading">Ersatzteilkataloge werden geladen …</div></main>
+  <nav class="bottom-nav" aria-label="Hauptmenü">
+    <button data-nav="home" type="button" onclick="go('home')"><span aria-hidden="true">⌂</span><small>Maschinen</small></button>
+    <button data-nav="search" type="button" onclick="go('search')"><span aria-hidden="true">⌕</span><small>Suche</small></button>
+    <button data-nav="saved" type="button" onclick="go('saved')"><span aria-hidden="true">▤</span><small>Merkliste <b id="badge"></b></small></button>
+    <button data-nav="tools" type="button" onclick="go('tools')"><span aria-hidden="true">⋯</span><small>Mehr</small></button>
+  </nav>
+  <div id="sheetRoot"></div>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script defer src="app.js"></script>
+</body>
+</html>
