@@ -1,1 +1,11 @@
-SpareParts 0.3 – öffentliche App-Hülle ohne private Kataloge.\n\nDie Dateien im Wurzelverzeichnis des GitHub Pages Repositorys hochladen. Die private JSON-Katalogdatei niemals hochladen.\n\nNeu: TASKI-Logo, dunkles Orange/Anthrazit, Kategorien mit Fotos der bereits importierten Maschinen, Finger-Zoom und Verschieben der Explosionszeichnungen. Für noch leere Kategorien sind vorerst Text-Platzhalter vorgesehen; keine fremden Produktfotos werden ohne Nutzungsfreigabe öffentlich eingebettet.\n\nDie privaten Kataloge bleiben im IndexedDB-Speicher derselben App-URL erhalten. Die App-URL nicht ändern.\n
+SpareParts 0.4 – öffentliche App-Hülle ohne private Katalogdaten.
+
+Die App enthält sieben Maschinenkategorien mit festen Kategorie-Symbolbildern. Die Bilddateien liegen im Ordner `category-images` und werden zusammen mit der öffentlichen App bereitgestellt.
+
+Die ZIP-Datei enthält ausschließlich die öffentliche PWA-Oberfläche. Die private Katalogdatei mit PDFs, Zeichnungen und Ersatzteildaten darf nicht in das öffentliche GitHub-Repository hochgeladen werden.
+
+Für das Update die öffentlichen Dateien im Wurzelverzeichnis des bestehenden GitHub-Pages-Repositories ersetzen. Die App-URL beibehalten, damit lokal gespeicherte Merklisten und Positionsmarkierungen erhalten bleiben.
+
+Anklickbare Positionen werden aus den Artikelnummern in den Explosionszeichnungen erkannt und mit der Ersatzteilliste derselben Baugruppe abgeglichen. Unsichere und nicht erkannte Markierungen bleiben für die manuelle Zuordnung offen. Automatische Zuordnungen vor einer Bestellung am Originalkatalog prüfen.
+
+Version 0.4 unterstützt den Import der privaten JSON-Datei bis 250 MB und schreibt die PDF- und Bilddateien in kleinen Stapeln in den lokalen IndexedDB-Speicher.

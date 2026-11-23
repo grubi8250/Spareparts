@@ -21,7 +21,7 @@ main{padding:20px 15px 112px;max-width:890px;margin:auto}h1,h2,h3{margin-top:0;c
 @media(max-width:370px){.status-pill{display:none}.part{flex-wrap:wrap}.part-actions{margin-left:auto}.diagram-tools{gap:4px}.diagram-tools .btn.tight{font-size:12px;padding:8px}}
 @media print{body{background:#fff!important;color:#000!important}.app-header,.bottom-nav,.sheet-overlay,.sheet,#toast,.noprint,main> :not(.print-only){display:none!important}.print-only{display:block!important}main{padding:0!important;max-width:none!important}.print-only h1{font-size:19pt}.print-only p{font-size:10pt}.print-only table{width:100%;border-collapse:collapse}.print-only th,.print-only td{border-bottom:1px solid #aaa;text-align:left;padding:8px 5px;font-size:11pt}.print-only th{background:#eee}.print-only td:last-child{text-align:right}.print-only tr{break-inside:avoid}}
 
-/* SpareParts 0.3 TASKI Anthrazit */
+/* SpareParts 0.4 TASKI Anthrazit */
 :root{background:#202226;color:#f4f4f4;color-scheme:dark}
 html,body{background:#202226;overflow-x:hidden;touch-action:pan-y;-webkit-text-size-adjust:100%}
 .app-header{background:#16181b;border-bottom:2px solid #ff8700}

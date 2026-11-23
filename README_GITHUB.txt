@@ -1,10 +1,9 @@
-SpareParts 0.3 – ÖFFENTLICHE App-Hülle ohne PDFs und Ersatzteildaten.
+SpareParts 0.4 – ÖFFENTLICHE App-Hülle ohne PDFs und Ersatzteildaten.
 
-GitHub Pages: Lade ausschließlich diese ZIP (entpackt) hoch. index.html muss im Wurzelverzeichnis liegen.
+Lade die Dateien und den Ordner `category-images` aus dieser ZIP in das bestehende GitHub-Pages-Repository. index.html muss im Wurzelverzeichnis liegen. Behalte die bisherige App-URL bei.
 
-Die PRIVATE Datei SpareParts_PRIVATE_Kataloge_nicht_hochladen.json darf NICHT auf GitHub hochgeladen werden.
-Übertrage diese separat auf dein iPhone in Dateien und importiere sie in der App.
-Beim Import werden die Kataloge lokal im IndexedDB-Speicher gespeichert.
-Die Daten können durch iOS-Speicherbereinigung oder Löschen der App verlorengehen.
-Erst nach einem erfolgreichen Flugmodus-Test produktiv nutzen.
-Anklickbare Nummern beruhen auf automatischer Erkennung und müssen vor Bestellung geprüft werden.
+Die Datei SpareParts_v0.4_PRIVATE_62_KATALOGE_NICHT_HOCHLADEN.json ist privat und darf NICHT auf GitHub hochgeladen werden. Übertrage sie separat auf das iPhone und importiere sie in der App. Die Datei enthält die PDFs, Explosionszeichnungen und Ersatzteildaten aller 62 Kataloge.
+
+Beim Import speichert die App die Daten lokal in IndexedDB. Der Import unterstützt Dateien bis 250 MB. Speicherplatz auf dem iPhone prüfen und die privaten Kataloge separat sichern.
+
+Automatisch erkannte Markierungen vor einer Bestellung anhand des Original-PDFs prüfen. Fehlende Positionen können über „Zuordnen“ manuell verknüpft werden.

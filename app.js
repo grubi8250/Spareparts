@@ -1,6 +1,6 @@
 'use strict';
 
-// SpareParts 0.3 – offline-first, ohne externe Bibliotheken oder Server-APIs.
+// SpareParts 0.4 – offline-first, ohne externe Bibliotheken oder Server-APIs.
 const CATEGORIES = [
   'Scheuersaugmaschinen Batterie',
   'Einscheibenmaschinen',
@@ -10,7 +10,6 @@ const CATEGORIES = [
   'Teppichreiniger',
   'Scheuersaugmaschinen 230V'
 ];
-const CAT_PHOTOS = ['category-scrubber.webp',null,null,'category-sweeper.webp',null,null,null];
 const $ = id => document.getElementById(id);
 const htmlEscape = v => String(v??'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function loadStored(k,fallback){ try {return JSON.parse(localStorage.getItem(k)) || fallback;}catch{return fallback;} }
@@ -46,11 +45,11 @@ function updateNav(){
   document.querySelectorAll('.bottom-nav button').forEach(b=>b.classList.toggle('active',b.dataset.nav===(['home','models','groups','group'].includes(state.screen)?'home':state.screen)));
 }
 function machineCount(cat){return machines.filter(m=>m.category===cat).length}
-function categoryImage(i){const m=machines.find(m=>m.category===CATEGORIES[i]);return m?.thumbnail||null;}
+function categoryImage(i){return `./category-images/category-${String(i+1).padStart(2,'0')}.webp`;}
 function cardCategories(){
   return `<div class="eyebrow">Katalogübersicht</div><h1>Maschinen</h1><p class="lead muted">Wähle zuerst die Maschinenkategorie.</p>`+
     CATEGORIES.map((c,i)=>`<button class="list-card" type="button" onclick="chooseCat(${i})">${categoryImage(i)?`<img class="cat-photo" src="${categoryImage(i)}" alt="" loading="lazy">`:`<span class="cat-photo cat-photo-placeholder" aria-hidden="true">${["Batterie", "Einscheiben", "Zubehör", "Kehrmaschine", "Staubsauger", "Teppich", "230 V"][i]}</span>`}<span class="grow"><strong>${htmlEscape(c)}</strong><small>${machineCount(c)?machineCount(c)+' Maschine'+(machineCount(c)>1?'n':''):'Noch keine Maschinen'}</small></span><span class="chevron">›</span></button>`).join('')+
-    `<p class="version">SpareParts 0.3 · Private Offline-Kataloge · Merkliste</p>`;
+    `<p class="version">SpareParts 0.4 · Private Offline-Kataloge · Merkliste</p>`;
 }
 function cardModels(){
  const ms=machines.filter(m=>m.category===state.cat);
@@ -169,8 +168,8 @@ function diagramTap(e){
  state.picker={x:+x.toFixed(3),y:+y.toFixed(3)};
  showPicker();
 }
-function showPartSheet(mid,number){
- const m=model(mid),p=m?.parts.find(x=>x.number===number);
+function showPartSheet(mid,number,page=state.page){
+ const m=model(mid),p=m?.parts.find(x=>x.number===number&&x.diagramPage===Number(page));
  if(!p)return showToast('Artikelnummer nicht gefunden.');
  const g=m.groups.find(x=>x.diagramPage===p.diagramPage);
  let box=`<div class="sheet-head"><div><p class="eyebrow">Ersatzteil auswählen</p><h3 class="num">${htmlEscape(p.number)}</h3></div><button type="button" class="sheet-close" aria-label="Schließen" onclick="closeSheet()">×</button></div>`+
@@ -232,7 +231,7 @@ async function copyList(){
  try{await navigator.clipboard.writeText(values);showToast('Merkliste kopiert.');}
  catch{window.prompt('Zum Kopieren markieren:',values);}
 }
-function searchView(){return `<div class="eyebrow">Alle vorhandenen Ersatzteilkataloge</div><h1>Artikel suchen</h1><p class="muted lead">Suche gleichzeitig in Swingo 1650/1850 und balimat 6500.</p><input class="search-box" id="searchInput" type="search" placeholder="Artikelnummer oder Bezeichnung" oninput="searchNow()" autocomplete="off" aria-label="Artikel suchen"><div id="searchResults" class="search-results muted">Gib mindestens 2 Zeichen ein, um Ersatzteile zu finden.</div>`;}
+function searchView(){return `<div class="eyebrow">Alle vorhandenen Ersatzteilkataloge</div><h1>Artikel suchen</h1><p class="muted lead">Durchsuche Artikelnummern und Ersatzteilbezeichnungen aller importierten Kataloge.</p><input class="search-box" id="searchInput" type="search" placeholder="Artikelnummer oder Bezeichnung" oninput="searchNow()" autocomplete="off" aria-label="Artikel suchen"><div id="searchResults" class="search-results muted">Gib mindestens 2 Zeichen ein, um Ersatzteile zu finden.</div>`;}
 function searchNow(){
  let val=$('searchInput')?.value.trim().toLowerCase(),out=$('searchResults');if(!out)return;
  if(!val||val.length<2){out.textContent='Gib mindestens 2 Zeichen ein, um Ersatzteile zu finden.';return;}
@@ -256,7 +255,7 @@ function importBackup(el){
    clean[k]={number:p.number,description:String(p.description||'').slice(0,200),machine:String(p.machine||'').slice(0,150),qty:p.qty};
   });
   const coords={};Object.entries(v.mapping).forEach(([k,spots])=>{
-   if(!/^(swingo|balimat):\d+$/.test(k)||!Array.isArray(spots))return;
+   if(!/^[A-Za-z0-9_-]{1,64}:\d+$/.test(k)||!Array.isArray(spots))return;
    let [mid,page]=k.split(':'),m=model(mid),g=m?.groups.find(gr=>gr.diagramPage===Number(page));if(!g)return;
    const legal=uniqueNumbers(groupParts(m,g));
    coords[k]=spots.filter(h=>h&&legal.has(h.number)&&Number.isFinite(h.x)&&Number.isFinite(h.y)&&h.x>=0&&h.x<=100&&h.y>=0&&h.y<=100).slice(0,250).map(h=>({number:h.number,x:h.x,y:h.y,source:'manual'}));
@@ -269,9 +268,9 @@ function toolsView(){
  const original=machines.reduce((sum,m)=>sum+m.parts.length,0);
  return `<div class="eyebrow">SpareParts – Verwaltung</div><h1>Mehr</h1><div class="surface tools-card"><h3>Offline-Kataloge</h3><p>Die öffentliche App wird offline zwischengespeichert. PDF-Kataloge und Explosionszeichnungen importierst du privat und speicherst sie auf diesem iPhone.</p><span class="offline-badge">✓ Offline-fähig</span><p class="hint">Teste die App nach der Installation einmal im Flugmodus. Lösche keine Website-Daten für SpareParts, sonst können Merklisten und eigene Markierungen verloren gehen.</p></div>`+
  `<div class="surface tools-card"><h3>Merkliste & Markierungen sichern</h3><p>Sichere deine Merkliste und selbst hinzugefügte Zuordnungspunkte als Datei. Die Daten werden nur auf diesem Gerät gespeichert, bis du sie selbst exportierst.</p><div class="row"><button type="button" class="btn" onclick="downloadBackup()">Sicherung exportieren</button><label class="btn secondary" for="importBackupInput" style="cursor:pointer">Sicherung importieren</label><input type="file" id="importBackupInput" accept=".json,application/json" style="display:none" onchange="importBackup(this)"></div></div>`+
- `<div class="surface tools-card"><h3>Originalkataloge</h3><p>${original} Ersatzteileinträge · ${totalHotspots} erkannte antippbare Markierungen · 2 Maschinen.</p>`+
+ `<div class="surface tools-card"><h3>Originalkataloge</h3><p>${original} Ersatzteileinträge · ${totalHotspots} erkannte antippbare Markierungen · ${machines.length} Maschinen.</p>`+
  machines.map(m=>`<p style="margin:6px 0"><a href="${m.pdf}" target="_blank" rel="noopener">${htmlEscape(m.name)} – Original-PDF öffnen ↗</a></p>`).join('')+
- `</div><p class="version">Version 0.3 · Automatisch erkannte Nummern bitte vor einer Bestellung anhand des PDF-Katalogs prüfen. Nicht erkannte Nummern lassen sich über „Zuordnen“ nachtragen.</p>`;
+ `</div><p class="version">Version 0.4 · Automatisch erkannte Nummern bitte vor einer Bestellung anhand des PDF-Katalogs prüfen. Nicht erkannte Nummern lassen sich über „Zuordnen“ nachtragen.</p>`;
 }
 function render(){
  if(!machines.length)return;
@@ -296,13 +295,13 @@ function dbWriteAll(db,records){return new Promise((resolve,reject)=>{
 function base64ToBlob(b64,path){
  const bytes=atob(b64),u=new Uint8Array(bytes.length);
  for(let i=0;i<bytes.length;i++)u[i]=bytes.charCodeAt(i);
- const type=path.endsWith('.pdf')?'application/pdf':path.endsWith('.webp')?'image/webp':'application/octet-stream';
+ const type=path.endsWith('.pdf')?'application/pdf':path.endsWith('.webp')?'image/webp':/\.jpe?g$/i.test(path)?'image/jpeg':path.endsWith('.png')?'image/png':'application/octet-stream';
  return new Blob([u],{type});
 }
 function privateImportScreen(message=''){
  $('app').innerHTML=`<div class="eyebrow">Privat · nur auf deinem iPhone</div><h1>Kataloge importieren</h1>
  <div class="surface tools-card"><p>Die App ist installiert, aber es sind noch keine Ersatzteilkataloge auf diesem Gerät gespeichert.</p>
- <p>Wähle die Datei <strong>SpareParts_PRIVATE_Kataloge_nicht_hochladen.json</strong> in der Dateien-App aus. Sie wird lokal auf diesem Gerät gespeichert und <strong>nicht zu GitHub hochgeladen</strong>.</p>
+ <p>Wähle <strong>SpareParts_v0.4_PRIVATE_62_KATALOGE_NICHT_HOCHLADEN.json</strong> in der Dateien-App aus. Sie wird lokal auf diesem Gerät gespeichert und <strong>nicht zu GitHub hochgeladen</strong>.</p>
  <label class="btn" for="privateCatalogFile">📂 Private Katalogdatei auswählen</label>
  <input id="privateCatalogFile" type="file" accept=".json,application/json" style="display:none" onchange="importPrivateCatalog(this)">
  <p class="hint" id="importStatus">${htmlEscape(message)}</p></div>
@@ -312,15 +311,23 @@ async function importPrivateCatalog(input){
  const file=input.files?.[0];if(!file)return;
  const status=$('importStatus');status.textContent='Datei wird geprüft und auf diesem iPhone gespeichert …';
  try{
-  if(file.size>250000000)throw Error('Datei ist größer als 250 MB.');
+  if(file.size>250000000)throw Error('Die Katalogdatei überschreitet die unterstützte Größe von 250 MB.');
   const payload=JSON.parse(await file.text());
   if(payload.format!=='SpareParts-Privatkatalog-1'||!Array.isArray(payload.models)||!payload.assets||!payload.models.length)throw Error('Keine gültige SpareParts-Katalogdatei.');
-  const records=[['models',payload.models]];
-  for(const [path,b64] of Object.entries(payload.assets)){
-   if(!/^(catalogs|diagrams|thumbnails)\/[A-Za-z0-9._-]+$/.test(path)||typeof b64!=='string')throw Error('Ungültiger Kataloginhalt.');
-   records.push(['asset:'+path,base64ToBlob(b64,path)]);
+  const db=privateDb||(privateDb=await getPrivateDb());
+  const paths=Object.keys(payload.assets);
+  for(let i=0;i<paths.length;i+=12){
+   const records=[];
+   for(const path of paths.slice(i,i+12)){
+    const b64=payload.assets[path];
+    if(!/^(catalogs|diagrams|thumbnails)\/[A-Za-z0-9._-]+$/.test(path)||typeof b64!=='string')throw Error('Ungültiger Kataloginhalt.');
+    records.push(['asset:'+path,base64ToBlob(b64,path)]);
+    delete payload.assets[path];
+   }
+   await dbWriteAll(db,records);
+   status.textContent=`Kataloge gespeichert: ${Math.min(i+12,paths.length)} von ${paths.length} Dateien …`;
   }
-  const db=privateDb||(privateDb=await getPrivateDb());await dbWriteAll(db,records);
+  await dbWriteAll(db,[['models',payload.models]]);
   await loadPrivateCatalog();showToast('Private Kataloge erfolgreich importiert.');
  }catch(e){privateImportScreen('Import fehlgeschlagen: '+e.message+' Bitte freien Speicherplatz prüfen.');}
 }
