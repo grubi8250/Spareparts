@@ -312,7 +312,7 @@ async function importPrivateCatalog(input){
  const file=input.files?.[0];if(!file)return;
  const status=$('importStatus');status.textContent='Datei wird geprüft und auf diesem iPhone gespeichert …';
  try{
-  if(file.size>35000000)throw Error('Datei ist ungewöhnlich groß.');
+  if(file.size>250000000)throw Error('Datei ist größer als 250 MB.');
   const payload=JSON.parse(await file.text());
   if(payload.format!=='SpareParts-Privatkatalog-1'||!Array.isArray(payload.models)||!payload.assets||!payload.models.length)throw Error('Keine gültige SpareParts-Katalogdatei.');
   const records=[['models',payload.models]];
