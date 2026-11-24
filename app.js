@@ -49,7 +49,14 @@ function categoryImage(i){return `./category-images/category-${String(i+1).padSt
 function cardCategories(){
   return `<div class="eyebrow">Katalogübersicht</div><h1>Maschinen</h1><p class="lead muted">Wähle zuerst die Maschinenkategorie.</p>`+
     CATEGORIES.map((c,i)=>`<button class="list-card" type="button" onclick="chooseCat(${i})">${categoryImage(i)?`<img class="cat-photo" src="${categoryImage(i)}" alt="" loading="lazy">`:`<span class="cat-photo cat-photo-placeholder" aria-hidden="true">${["Batterie", "Einscheiben", "Zubehör", "Kehrmaschine", "Staubsauger", "Teppich", "230 V"][i]}</span>`}<span class="grow"><strong>${htmlEscape(c)}</strong><small>${machineCount(c)?machineCount(c)+' Maschine'+(machineCount(c)>1?'n':''):'Noch keine Maschinen'}</small></span><span class="chevron">›</span></button>`).join('')+
-    `<p class="version">SpareParts 0.4 · Private Offline-Kataloge · Merkliste</p>`;
+    `<div class="note"><strong>Unabhängige, private Arbeitshilfe.</strong> Keine offizielle TASKI-App und nicht mit TASKI oder Diversey verbunden. Katalogdaten und Merkliste werden lokal auf diesem Gerät gespeichert.</div><button class="btn secondary wide share-app noprint" type="button" onclick="shareApp()">↗ App-Link teilen</button><p class="version">SpareParts 0.4 · Private Offline-Kataloge · Merkliste</p>`;
+}
+async function shareApp(){
+ const url=location.href;
+ try{if(navigator.share){await navigator.share({title:'SpareParts',text:'SpareParts Ersatzteilkatalog',url});return;}}
+ catch(e){if(e.name==='AbortError')return;}
+ try{await navigator.clipboard.writeText(url);showToast('App-Link kopiert.');}
+ catch{window.prompt('App-Link kopieren:',url);}
 }
 function cardModels(){
  const ms=machines.filter(m=>m.category===state.cat);
@@ -86,9 +93,9 @@ function cardGroup(){
  const zoomLabel=Math.round(state.zoom*100)+' %';
  return titleAndBack('Baugruppen','groups')+
  `<div class="eyebrow">${htmlEscape(m.name)} · PDF-Seite ${g.diagramPage}</div><h1>${htmlEscape(g.label||g.name)}</h1>`+
- `<div class="note"><strong>Tippe auf eine Nummer in der Zeichnung.</strong> <span class="diagram-count">${markedCount} von ${totalCount}</span> Artikelnummern sind schon direkt verknüpft. Bei anderen Nummern erscheint eine Auswahl zum einmaligen Zuordnen.</div>`+
  `<div class="diagram-tools noprint"><span class="zoom-label" id="zoomLabel">${zoomLabel}</span><span class="tool-spacer"></span><button type="button" class="btn ${state.mapMode?'danger':'secondary'} tight" onclick="toggleMapping()">${state.mapMode?'Fertig':'✎ Zuordnen'}</button></div>`+
  `<div class="diagram-frame" id="diagramViewport" aria-label="Explosionszeichnung, zoombar und mit verknüpften Artikelnummern"><div class="diagram-inner ${state.mapMode?'mode-map':''}" id="diagramInner" style="width:${Math.round(state.zoom*100)}%" onclick="diagramTap(event)"><img draggable="false" src="${g.image}" alt="Explosionszeichnung ${htmlEscape(g.name)} aus dem Originalkatalog auf Seite ${g.diagramPage}" loading="eager">${state.mapMode?'':markHtml(g,m)}</div></div>`+
+ `<div class="note"><strong>Tippe auf eine Nummer in der Zeichnung.</strong> <span class="diagram-count">${markedCount} von ${totalCount}</span> Artikelnummern sind schon direkt verknüpft. Bei anderen Nummern erscheint eine Auswahl zum einmaligen Zuordnen.</div>`+
  (state.mapMode?`<p class="diagram-help"><strong>Zuordnungsmodus:</strong> Tippe in der Zeichnung genau auf eine noch nicht verknüpfte Nummer. Wähle danach die richtige Artikelnummer aus der Liste. Die Markierung wird lokal gespeichert.</p>`:`<p class="diagram-help">Blau = automatisch erkannte Nummer, orange = selbst zugeordnet. Tippe auch auf eine nicht umrandete Nummer, um sie einmalig zuzuordnen. Mit zwei Fingern zoomen, mit einem Finger verschieben und per Doppeltipp zurücksetzen.</p>`)+
  `<div class="below-links noprint"><a class="btn ghost tight" href="${m.pdf}#page=${g.diagramPage}" target="_blank" rel="noopener">Original-PDF ↗</a><a class="btn ghost tight" href="${m.pdf}#page=${g.partsPage}" target="_blank" rel="noopener">PDF-Ersatzteilliste ↗</a></div>`+
  `<div class="section-heading"><h3>Alle Teile dieser Baugruppe</h3><span class="pill">${parts.length} Einträge</span></div>`+partRows(m,parts);
@@ -215,7 +222,7 @@ function removeSaved(key){delete saved[key];store();render();}
 function clearSaved(){if(!Object.keys(saved).length)return;if(confirm('Wirklich alle gemerkten Ersatzteile entfernen?')){saved={};store();render();showToast('Merkliste geleert.');}}
 function printTable(){
  let data=Object.values(saved);
- return `<section class="print-only"><h1>SpareParts · Merkliste</h1><p>Ausdruck vom ${new Date().toLocaleDateString('de-AT')} · ${data.length} Artikelpositionen</p><table><thead><tr><th>Artikelnummer</th><th>Ersatzteil</th><th>Maschine</th><th>Menge</th></tr></thead><tbody>${data.map(p=>`<tr><td class="num">${htmlEscape(p.number)}</td><td>${htmlEscape(p.description)}</td><td>${htmlEscape(p.machine)}</td><td>${p.qty}</td></tr>`).join('')}</tbody></table></section>`;
+  return `<section class="print-only"><h1>SpareParts · Merkliste</h1><p>Ausdruck vom ${new Date().toLocaleDateString('de-AT')} · ${data.length} Artikelpositionen</p><table><thead><tr><th>Artikelnummer</th><th>Ersatzteil</th><th>Maschine</th><th>Menge</th></tr></thead><tbody>${data.map(p=>`<tr><td class="num">${htmlEscape(p.number)}</td><td>${htmlEscape(p.description)}</td><td>${htmlEscape(p.machine)}</td><td>${p.qty}</td></tr>`).join('')}</tbody></table></section>`;
 }
 function savedView(){
  const entries=Object.entries(saved);
