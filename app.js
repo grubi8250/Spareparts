@@ -221,8 +221,21 @@ function adjustPart(key,step){
 function removeSaved(key){delete saved[key];store();render();}
 function clearSaved(){if(!Object.keys(saved).length)return;if(confirm('Wirklich alle gemerkten Ersatzteile entfernen?')){saved={};store();render();showToast('Merkliste geleert.');}}
 function printTable(){
- let data=Object.values(saved);
-  return `<section class="print-only"><h1>SpareParts · Merkliste</h1><p>Ausdruck vom ${new Date().toLocaleDateString('de-AT')} · ${data.length} Artikelpositionen</p><table><thead><tr><th>Artikelnummer</th><th>Ersatzteil</th><th>Maschine</th><th>Menge</th></tr></thead><tbody>${data.map(p=>`<tr><td class="num">${htmlEscape(p.number)}</td><td>${htmlEscape(p.description)}</td><td>${htmlEscape(p.machine)}</td><td>${p.qty}</td></tr>`).join('')}</tbody></table></section>`;
+ const data=Object.values(saved);
+ const rows=data.map(p=>`<tr><td>${htmlEscape(p.number)}</td><td>${htmlEscape(p.description)}</td><td>${htmlEscape(p.machine)}</td><td>${p.qty}</td></tr>`).join('');
+ const date=new Date().toLocaleDateString('de-AT');
+ return `<section class="print-only"><h1>SpareParts · Merkliste</h1><p>Ausdruck vom ${date} · ${data.length} Artikelpositionen</p><table><thead><tr><th>Artikelnummer</th><th>Ersatzteil</th><th>Maschine</th><th>Menge</th></tr></thead><tbody>${rows}</tbody></table></section>`;
+}
+function printSavedList(){
+ const popup=window.open('about:blank','_blank');
+ if(!popup){showToast('Druckansicht blockiert. Bitte SpareParts in Safari öffnen und erneut versuchen.');return;}
+ const data=Object.values(saved);
+ const rows=data.map(p=>`<tr><td>${htmlEscape(p.number)}</td><td>${htmlEscape(p.description)}</td><td>${htmlEscape(p.machine)}</td><td>${p.qty}</td></tr>`).join('');
+ const date=new Date().toLocaleDateString('de-AT');
+ popup.onload=()=>setTimeout(()=>popup.print(),400);
+ popup.document.open();
+ popup.document.write(`<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SpareParts · Merkliste</title><style>body{font:14px Arial,sans-serif;color:#111;margin:24px}h1{font-size:22px}p{color:#444}table{width:100%;border-collapse:collapse}th,td{text-align:left;border-bottom:1px solid #bbb;padding:9px 6px;vertical-align:top}th{background:#eee}.actions{margin:0 0 20px}@media print{.actions{display:none}body{margin:12mm}}</style></head><body><div class="actions"><button onclick="window.print()">Drucken oder als PDF sichern</button></div><h1>SpareParts · Merkliste</h1><p>Ausdruck vom ${date} · ${data.length} Artikelpositionen</p><table><thead><tr><th>Artikelnummer</th><th>Ersatzteil</th><th>Maschine</th><th>Menge</th></tr></thead><tbody>${rows}</tbody></table></body></html>`);
+ popup.document.close();
 }
 function savedView(){
  const entries=Object.entries(saved);
@@ -231,7 +244,7 @@ function savedView(){
   return `<div class="part"><div class="part-info"><strong class="num">${htmlEscape(p.number)}</strong><p class="desc">${htmlEscape(p.description)}</p><span class="hint">${htmlEscape(p.machine)}</span></div><div class="part-actions qty"><button type="button" onclick="adjustPart('${safeKey}',-1)" aria-label="Menge verringern">−</button><b>${p.qty}</b><button type="button" onclick="adjustPart('${safeKey}',1)" aria-label="Menge erhöhen">+</button><button type="button" class="remove" onclick="removeSaved('${safeKey}')" aria-label="Artikel entfernen">×</button></div></div>`;
  }).join('');
  return `<div class="noprint"><div class="eyebrow">Kostenvoranschlag vorbereiten</div><h1>Merkliste</h1><p class="muted lead">${entries.length} Artikel · Gesamtmenge ${entries.reduce((s,[,p])=>s+p.qty,0)} · Ohne Preise</p>`+
- (entries.length?row+`<div class="row" style="margin-top:14px"><button type="button" class="btn" onclick="window.print()">▤ Liste drucken / PDF</button><button type="button" class="btn secondary" onclick="copyList()">⎘ Liste kopieren</button></div><p style="margin-top:14px"><button type="button" class="btn danger wide" onclick="clearSaved()">🗑 Gesamte Merkliste leeren</button></p>`:`<div class="empty"><p>Die Merkliste ist noch leer. Tippe in einer Explosionszeichnung oder Ersatzteilliste auf ein Teil und wähle „Merken“.</p></div>`)+`</div>`+printTable();
+ (entries.length?row+`<div class="row" style="margin-top:14px"><button type="button" class="btn" onclick="printSavedList()">▤ Liste drucken / PDF</button><button type="button" class="btn secondary" onclick="copyList()">⎘ Liste kopieren</button></div><p style="margin-top:14px"><button type="button" class="btn danger wide" onclick="clearSaved()">🗑 Gesamte Merkliste leeren</button></p>`:`<div class="empty"><p>Die Merkliste ist noch leer. Tippe in einer Explosionszeichnung oder Ersatzteilliste auf ein Teil und wähle „Merken“.</p></div>`)+`</div>`+printTable();
 }
 async function copyList(){
  const values=Object.values(saved).map(p=>`${p.qty} × ${p.number} – ${p.description} (${p.machine})`).join('\n');
