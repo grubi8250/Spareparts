@@ -226,16 +226,83 @@ function printTable(){
  const date=new Date().toLocaleDateString('de-AT');
  return `<section class="print-only"><h1>SpareParts · Merkliste</h1><p>Ausdruck vom ${date} · ${data.length} Artikelpositionen</p><table><thead><tr><th>Artikelnummer</th><th>Ersatzteil</th><th>Maschine</th><th>Menge</th></tr></thead><tbody>${rows}</tbody></table></section>`;
 }
-function printSavedList(){
- const popup=window.open('about:blank','_blank');
- if(!popup){showToast('Druckansicht blockiert. Bitte SpareParts in Safari öffnen und erneut versuchen.');return;}
- const data=Object.values(saved);
- const rows=data.map(p=>`<tr><td>${htmlEscape(p.number)}</td><td>${htmlEscape(p.description)}</td><td>${htmlEscape(p.machine)}</td><td>${p.qty}</td></tr>`).join('');
- const date=new Date().toLocaleDateString('de-AT');
- popup.onload=()=>setTimeout(()=>popup.print(),400);
- popup.document.open();
- popup.document.write(`<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SpareParts · Merkliste</title><style>body{font:14px Arial,sans-serif;color:#111;margin:24px}h1{font-size:22px}p{color:#444}table{width:100%;border-collapse:collapse}th,td{text-align:left;border-bottom:1px solid #bbb;padding:9px 6px;vertical-align:top}th{background:#eee}.actions{margin:0 0 20px}@media print{.actions{display:none}body{margin:12mm}}</style></head><body><div class="actions"><button onclick="window.print()">Drucken oder als PDF sichern</button></div><h1>SpareParts · Merkliste</h1><p>Ausdruck vom ${date} · ${data.length} Artikelpositionen</p><table><thead><tr><th>Artikelnummer</th><th>Ersatzteil</th><th>Maschine</th><th>Menge</th></tr></thead><tbody>${rows}</tbody></table></body></html>`);
- popup.document.close();
+function makeSavedPdf(entries) {
+ const decoder = new TextDecoder('windows-1252');
+ const bytes = Uint8Array.from({length: 256}, (_, i) => i);
+ const encoding = new Map([...decoder.decode(bytes)].map((letter, i) => [letter, i]));
+ const hex = value => Array.from(String(value).normalize('NFC'), letter =>
+  (encoding.get(letter.replace(/[\r\n\t]/, ' ')) ?? 63).toString(16).padStart(2, '0')
+ ).join('');
+ const objects = ['', '', '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>'];
+ const pages = [];
+ let lines = [];
+ let y = 0;
+ const write = (value, size) => {
+  lines.push(`BT /F1 ${size} Tf 1 0 0 1 40 ${y} Tm <${hex(value)}> Tj ET`);
+  y -= size + 5;
+ };
+ function finishPage() {
+  const stream = lines.join('\n') + '\n';
+  const page = objects.length + 1;
+  pages.push(page);
+  objects.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents ${page + 1} 0 R >>`);
+  objects.push(`<< /Length ${stream.length} >>\nstream\n${stream}endstream`);
+ }
+ function startPage() {
+  lines = [];
+  y = 800;
+  write('SpareParts · Merkliste', 18);
+  write(`${new Date().toLocaleDateString('de-AT')} · Seite ${pages.length + 1}`, 10);
+  y -= 12;
+ }
+ startPage();
+ for (const part of entries) {
+  const fields = [`${part.qty} × ${part.number}`, part.description, part.machine];
+  if (y < 105) { finishPage(); startPage(); }
+  for (const field of fields) {
+   const wrapped = String(field ?? '').trim().match(/.{1,63}(?:\s|$)|.{1,63}/gu) || [];
+   for (const line of wrapped) {
+    if (y < 45) { finishPage(); startPage(); }
+    write(line.trim(), 10);
+   }
+  }
+  y -= 9;
+ }
+ finishPage();
+ objects[0] = '<< /Type /Catalog /Pages 2 0 R >>';
+ objects[1] = `<< /Type /Pages /Kids [${pages.map(page => page + ' 0 R').join(' ')}] /Count ${pages.length} >>`;
+ let pdf = '%PDF-1.4\n';
+ const offsets = objects.map((object, i) => {
+  const offset = pdf.length;
+  pdf += `${i + 1} 0 obj\n${object}\nendobj\n`;
+  return offset;
+ });
+ const xref = pdf.length;
+ pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+ for (const offset of offsets) pdf += `${String(offset).padStart(10, '0')} 00000 n \n`;
+ return pdf + `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+}
+async function exportSavedPdf() {
+ const entries = Object.values(saved);
+ if (!entries.length) return;
+ try {
+  const file = new File([makeSavedPdf(entries)], 'SpareParts-Merkliste.pdf', {type:'application/pdf'});
+  const share = {files:[file]};
+  if (navigator.share && navigator.canShare?.(share)) {
+   try { await navigator.share(share); return; }
+   catch (error) { if (error.name === 'AbortError') return; }
+  }
+  const url = URL.createObjectURL(file);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = file.name;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+ } catch {
+  showToast('Die PDF-Datei konnte nicht erstellt werden.');
+ }
 }
 function savedView(){
  const entries=Object.entries(saved);
@@ -244,7 +311,7 @@ function savedView(){
   return `<div class="part"><div class="part-info"><strong class="num">${htmlEscape(p.number)}</strong><p class="desc">${htmlEscape(p.description)}</p><span class="hint">${htmlEscape(p.machine)}</span></div><div class="part-actions qty"><button type="button" onclick="adjustPart('${safeKey}',-1)" aria-label="Menge verringern">−</button><b>${p.qty}</b><button type="button" onclick="adjustPart('${safeKey}',1)" aria-label="Menge erhöhen">+</button><button type="button" class="remove" onclick="removeSaved('${safeKey}')" aria-label="Artikel entfernen">×</button></div></div>`;
  }).join('');
  return `<div class="noprint"><div class="eyebrow">Kostenvoranschlag vorbereiten</div><h1>Merkliste</h1><p class="muted lead">${entries.length} Artikel · Gesamtmenge ${entries.reduce((s,[,p])=>s+p.qty,0)} · Ohne Preise</p>`+
- (entries.length?row+`<div class="row" style="margin-top:14px"><button type="button" class="btn" onclick="printSavedList()">▤ Liste drucken / PDF</button><button type="button" class="btn secondary" onclick="copyList()">⎘ Liste kopieren</button></div><p style="margin-top:14px"><button type="button" class="btn danger wide" onclick="clearSaved()">🗑 Gesamte Merkliste leeren</button></p>`:`<div class="empty"><p>Die Merkliste ist noch leer. Tippe in einer Explosionszeichnung oder Ersatzteilliste auf ein Teil und wähle „Merken“.</p></div>`)+`</div>`+printTable();
+ (entries.length?row+`<div class="row" style="margin-top:14px"><button type="button" class="btn" onclick="exportSavedPdf()">▤ Merkliste als PDF</button><button type="button" class="btn secondary" onclick="copyList()">⎘ Liste kopieren</button></div><p style="margin-top:14px"><button type="button" class="btn danger wide" onclick="clearSaved()">🗑 Gesamte Merkliste leeren</button></p>`:`<div class="empty"><p>Die Merkliste ist noch leer. Tippe in einer Explosionszeichnung oder Ersatzteilliste auf ein Teil und wähle „Merken“.</p></div>`)+`</div>`+printTable();
 }
 async function copyList(){
  const values=Object.values(saved).map(p=>`${p.qty} × ${p.number} – ${p.description} (${p.machine})`).join('\n');
@@ -286,7 +353,7 @@ function importBackup(el){
 function toolsView(){
  const totalHotspots=machines.reduce((sum,m)=>sum+m.groups.reduce((s,g)=>s+g.hotspots.length,0),0);
  const original=machines.reduce((sum,m)=>sum+m.parts.length,0);
- return `<div class="eyebrow">SpareParts – Verwaltung</div><h1>Mehr</h1><div class="surface tools-card"><h3>Offline-Kataloge</h3><p>Die öffentliche App wird offline zwischengespeichert. PDF-Kataloge und Explosionszeichnungen importierst du privat und speicherst sie auf diesem iPhone.</p><span class="offline-badge">✓ Offline-fähig</span><p class="hint">Teste die App nach der Installation einmal im Flugmodus. Lösche keine Website-Daten für SpareParts, sonst können Merklisten und eigene Markierungen verloren gehen.</p></div>`+
+ return `<div class="eyebrow">SpareParts – Verwaltung</div><h1>Mehr</h1><div class="surface tools-card"><h3>Offline-Kataloge</h3><p>Die öffentliche App wird offline zwischengespeichert. PDF-Kataloge und Explosionszeichnungen importierst du privat und speicherst sie auf diesem iPhone.</p><span class="offline-badge">✓ Offline-fähig</span><p>Entfernt die Kataloge von diesem Gerät. Die Merkliste und deine Zuordnungen bleiben gespeichert.</p><button id="resetCatalogButton" type="button" class="btn danger" onclick="resetPrivateCatalog()">Katalog zurücksetzen</button><p class="hint">Teste die App nach der Installation einmal im Flugmodus. Lösche keine Website-Daten für SpareParts, sonst können Merklisten und eigene Markierungen verloren gehen.</p></div>`+
  `<div class="surface tools-card"><h3>Merkliste & Markierungen sichern</h3><p>Sichere deine Merkliste und selbst hinzugefügte Zuordnungspunkte als Datei. Die Daten werden nur auf diesem Gerät gespeichert, bis du sie selbst exportierst.</p><div class="row"><button type="button" class="btn" onclick="downloadBackup()">Sicherung exportieren</button><label class="btn secondary" for="importBackupInput" style="cursor:pointer">Sicherung importieren</label><input type="file" id="importBackupInput" accept=".json,application/json" style="display:none" onchange="importBackup(this)"></div></div>`+
  `<div class="surface tools-card"><h3>Originalkataloge</h3><p>${original} Ersatzteileinträge · ${totalHotspots} erkannte antippbare Markierungen · ${machines.length} Maschinen.</p>`+
  machines.map(m=>`<p style="margin:6px 0"><a href="${m.pdf}" target="_blank" rel="noopener">${htmlEscape(m.name)} – Original-PDF öffnen ↗</a></p>`).join('')+
@@ -317,6 +384,29 @@ function base64ToBlob(b64,path){
  for(let i=0;i<bytes.length;i++)u[i]=bytes.charCodeAt(i);
  const type=path.endsWith('.pdf')?'application/pdf':path.endsWith('.webp')?'image/webp':/\.jpe?g$/i.test(path)?'image/jpeg':path.endsWith('.png')?'image/png':'application/octet-stream';
  return new Blob([u],{type});
+}
+async function resetPrivateCatalog() {
+ const button = $('resetCatalogButton');
+ if (button.disabled || !confirm('Lokale Kataloge entfernen? Du brauchst anschließend deine private JSON-Datei für den erneuten Import. Merkliste und Zuordnungen bleiben gespeichert.')) return;
+ button.disabled = true;
+ try {
+  const db = privateDb || (privateDb = await getPrivateDb());
+  await new Promise((resolve, reject) => {
+   const transaction = db.transaction('catalog', 'readwrite');
+   transaction.oncomplete = resolve;
+   transaction.onabort = () => reject(transaction.error);
+   transaction.objectStore('catalog').clear();
+  });
+  for (const url of privateUrls) URL.revokeObjectURL(url);
+  privateUrls.length = 0;
+  machines = [];
+  go('home');
+  updateNav();
+  privateImportScreen('Katalog zurückgesetzt. Wähle deine private JSON-Datei aus.');
+ } catch {
+  button.disabled = false;
+  showToast('Der Katalog konnte nicht zurückgesetzt werden.');
+ }
 }
 function privateImportScreen(message=''){
  $('app').innerHTML=`<div class="eyebrow">Privat · nur auf deinem iPhone</div><h1>Kataloge importieren</h1>
