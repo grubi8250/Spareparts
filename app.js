@@ -82,7 +82,7 @@ function effectiveMarks(g,m){
  const marks=[];
  for(const mark of [...manual,...automatic]){
   if(!valid.has(mark.number)||!Number.isFinite(mark.x)||!Number.isFinite(mark.y))continue;
-  if(marks.some(used=>used.number===mark.number||sameSpot(used,mark)))continue;
+  if(marks.some(used=>sameSpot(used,mark)))continue;
   if(automatic.includes(mark)&&manual.some(used=>sameSpot(used,mark)))continue;
   marks.push(mark);
  }
@@ -230,11 +230,7 @@ function setManualPosition(number){
  const key=groupPositionKey(state.mid,state.page),m=currentModel(),g=currentGroup();
  if(!groupParts(m,g).some(p=>p.number===number))return;
  const point=state.picker;
- if(effectiveMarks(g,m).some(mark=>mark.number===number&&!sameSpot(mark,point))){
-  showToast('Diese Artikelnummer ist in dieser Zeichnung bereits verknüpft.');
-  return;
- }
- const a=userMarks(state.mid,state.page).filter(mark=>mark.number!==number&&!sameSpot(mark,point));
+ const a=userMarks(state.mid,state.page).filter(mark=>!sameSpot(mark,point));
  a.push({number,x:state.picker.x,y:state.picker.y,source:'manual'});
  mapping[key]=a;state.picker=null;state.mapMode=false;
  store();closeSheet();render();showToast(`Position ${number} verknüpft.`);
