@@ -46,3 +46,5 @@ h1,h2,h3,.part-info strong{color:#f7f7f7}.eyebrow,.diagram-count,.chevron,.botto
 /* iOS touch: disable page pinch, retain custom diagram gestures */
 .diagram-frame,.diagram-inner,.diagram-inner *{-webkit-user-select:none;user-select:none}
 @media print{:root,html,body{color:#111;background:#fff}.part-info strong{color:#111}}
+
+.spot.uncertain{background:#ffe44888;border-color:#a86e00;box-shadow:0 0 0 1px #fff4a5}

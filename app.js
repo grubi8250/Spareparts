@@ -71,12 +71,28 @@ function cardGroups(){
   return `<button class="list-card" type="button" onclick="chooseGroup(${g.diagramPage})"><span class="cat-icon">▤</span><span class="grow"><strong>${htmlEscape(g.label||g.name)}</strong><small>${count} Teile · Zeichnung Seite ${g.diagramPage}</small></span><span class="chevron">›</span></button>`;
  }).join('');
 }
+function sameSpot(a,b){
+ return Math.hypot(a.x-b.x,a.y-b.y)<1;
+}
+function effectiveMarks(g,m){
+ const valid=uniqueNumbers(groupParts(m,g));
+ const manual=[...userMarks(m.id,g.diagramPage)].reverse();
+ const automatic=[...g.hotspots].sort((a,b)=>
+  Number(a.source==='uncertain')-Number(b.source==='uncertain') || (b.confidence||0)-(a.confidence||0));
+ const marks=[];
+ for(const mark of [...manual,...automatic]){
+  if(!valid.has(mark.number)||!Number.isFinite(mark.x)||!Number.isFinite(mark.y))continue;
+  if(marks.some(used=>used.number===mark.number||sameSpot(used,mark)))continue;
+  if(automatic.includes(mark)&&manual.some(used=>sameSpot(used,mark)))continue;
+  marks.push(mark);
+ }
+ return marks;
+}
 function markHtml(g,m){
- const arr=[...g.hotspots,...userMarks(m.id,g.diagramPage)];
- const available=uniqueNumbers(groupParts(m,g));
- return arr.filter(h=>available.has(h.number)&&Number.isFinite(h.x)&&Number.isFinite(h.y)).map(h=>{
-  let label=`Artikelnummer ${h.number} auswählen`;
-  return `<button class="spot ${h.source==='manual'?'manual':''}" type="button" aria-label="${label}" title="${label}" style="left:${h.x}%;top:${h.y}%" onclick="tapPosition('${h.number}',event)"></button>`;
+ return effectiveMarks(g,m).map((mark,index)=>{
+  const color=mark.source==='manual'?'manual':mark.source==='uncertain'?'uncertain':'';
+  const label=htmlEscape(`${color==='uncertain'?'Unsicherer Vorschlag: ':''}Artikelnummer ${mark.number} auswählen`);
+  return `<button class="spot ${color}" type="button" aria-label="${label}" title="${label}" style="left:${mark.x}%;top:${mark.y}%" onclick="tapPosition(${index},event)"></button>`;
  }).join('');
 }
 function partRows(m,parts,withSource=false){
@@ -87,7 +103,7 @@ function partRows(m,parts,withSource=false){
 }
 function cardGroup(){
  const m=currentModel(),g=currentGroup();if(!m||!g)return '<div class="empty">Baugruppe nicht gefunden.</div>';
- const parts=groupParts(m,g), annotated=new Set([...g.hotspots,...userMarks(m.id,g.diagramPage)].map(h=>h.number));
+ const parts=groupParts(m,g), annotated=new Set(effectiveMarks(g,m).map(h=>h.number));
  const markedCount=parts.filter((p,i,a)=>a.findIndex(x=>x.number===p.number)===i && annotated.has(p.number)).length;
  const totalCount=uniqueNumbers(parts).size;
  const zoomLabel=Math.round(state.zoom*100)+' %';
@@ -96,7 +112,7 @@ function cardGroup(){
  `<div class="diagram-tools noprint"><span class="zoom-label" id="zoomLabel">${zoomLabel}</span><span class="tool-spacer"></span><button type="button" class="btn ${state.mapMode?'danger':'secondary'} tight" onclick="toggleMapping()">${state.mapMode?'Fertig':'✎ Zuordnen'}</button></div>`+
  `<div class="diagram-frame" id="diagramViewport" aria-label="Explosionszeichnung, zoombar und mit verknüpften Artikelnummern"><div class="diagram-inner ${state.mapMode?'mode-map':''}" id="diagramInner" style="width:${Math.round(state.zoom*100)}%" onclick="diagramTap(event)"><img draggable="false" src="${g.image}" alt="Explosionszeichnung ${htmlEscape(g.name)} aus dem Originalkatalog auf Seite ${g.diagramPage}" loading="eager">${state.mapMode?'':markHtml(g,m)}</div></div>`+
  `<div class="note"><strong>Tippe auf eine Nummer in der Zeichnung.</strong> <span class="diagram-count">${markedCount} von ${totalCount}</span> Artikelnummern sind schon direkt verknüpft. Bei anderen Nummern erscheint eine Auswahl zum einmaligen Zuordnen.</div>`+
- (state.mapMode?`<p class="diagram-help"><strong>Zuordnungsmodus:</strong> Tippe in der Zeichnung genau auf eine noch nicht verknüpfte Nummer. Wähle danach die richtige Artikelnummer aus der Liste. Die Markierung wird lokal gespeichert.</p>`:`<p class="diagram-help">Blau = automatisch erkannte Nummer, orange = selbst zugeordnet. Tippe auch auf eine nicht umrandete Nummer, um sie einmalig zuzuordnen. Mit zwei Fingern zoomen, mit einem Finger verschieben und per Doppeltipp zurücksetzen.</p>`)+
+ (state.mapMode?`<p class="diagram-help"><strong>Zuordnungsmodus:</strong> Tippe in der Zeichnung genau auf eine noch nicht verknüpfte Nummer. Wähle danach die richtige Artikelnummer aus der Liste. Die Markierung wird lokal gespeichert.</p>`:`<p class="diagram-help">Blau = sicher automatisch verknüpft, Gelb = unsicherer Vorschlag, Orange = selbst bestätigt oder zugeordnet. Tippe auch auf eine nicht umrandete Nummer, um sie einmalig zuzuordnen. Mit zwei Fingern zoomen, mit einem Finger verschieben und per Doppeltipp zurücksetzen.</p>`)+
  `<div class="below-links noprint"><a class="btn ghost tight" href="${m.pdf}#page=${g.diagramPage}" target="_blank" rel="noopener">Original-PDF ↗</a><a class="btn ghost tight" href="${m.pdf}#page=${g.partsPage}" target="_blank" rel="noopener">PDF-Ersatzteilliste ↗</a></div>`+
  `<div class="section-heading"><h3>Alle Teile dieser Baugruppe</h3><span class="pill">${parts.length} Einträge</span></div>`+partRows(m,parts);
 }
@@ -165,7 +181,14 @@ function changeZoom(direction){
 }
 function resetZoom(){state.zoom=1;render();}
 function toggleMapping(){state.mapMode=!state.mapMode;closeSheet();render();}
-function tapPosition(number,e){e.stopPropagation();if(state.mapMode)return;showPartSheet(state.mid,number);}
+function tapPosition(index,e){
+ e.stopPropagation();
+ if(state.mapMode)return;
+ const mark=effectiveMarks(currentGroup(),currentModel())[index];
+ if(!mark)return;
+ state.picker={x:mark.x,y:mark.y};
+ showPartSheet(state.mid,mark.number,state.page,mark);
+}
 function diagramTap(e){
  // Auch nicht automatisch erkannte Nummern lassen sich durch Tippen verknüpfen.
  if(e.target.closest('.spot'))return;
@@ -175,13 +198,17 @@ function diagramTap(e){
  state.picker={x:+x.toFixed(3),y:+y.toFixed(3)};
  showPicker();
 }
-function showPartSheet(mid,number,page=state.page){
+function showPartSheet(mid,number,page=state.page,mark=null){
  const m=model(mid),p=m?.parts.find(x=>x.number===number&&x.diagramPage===Number(page));
  if(!p)return showToast('Artikelnummer nicht gefunden.');
  const g=m.groups.find(x=>x.diagramPage===p.diagramPage);
  let box=`<div class="sheet-head"><div><p class="eyebrow">Ersatzteil auswählen</p><h3 class="num">${htmlEscape(p.number)}</h3></div><button type="button" class="sheet-close" aria-label="Schließen" onclick="closeSheet()">×</button></div>`+
  `<p style="margin:3px 0 8px">${htmlEscape(p.description)}</p><p class="sheet-info">${htmlEscape(m.name)} · ${htmlEscape(g?.name||p.group)} · PDF S. ${p.partsPage}</p>`+
  `<button type="button" class="btn wide" onclick="addPart('${m.id}','${p.number}')">＋ Auf Merkliste setzen</button>`;
+ if(mark){
+  if(mark.source==='uncertain')box+='<p class="sheet-info">Gelb · Unsicherer Vorschlag. Bitte mit der Ersatzteilliste abgleichen.</p>';
+  box+=`<div class="row" style="margin-top:10px"><button type="button" class="btn secondary" onclick="showPicker()">Verknüpfung ändern</button>${mark.source!=='manual'?'<button type="button" class="btn secondary" onclick="setManualPosition(this.dataset.number)" data-number="'+htmlEscape(mark.number)+'">Verknüpfung bestätigen</button>':''}</div>`;
+ }
  openSheet(box);
 }
 function openSheet(html){$('sheetRoot').innerHTML=`<div class="sheet-overlay" onclick="closeSheet()" aria-hidden="true"></div><section class="sheet" role="dialog" aria-modal="true" aria-label="Ersatzteilinformation">${html}</section>`;}
@@ -202,7 +229,12 @@ function setManualPosition(number){
  if(!state.picker)return;
  const key=groupPositionKey(state.mid,state.page),m=currentModel(),g=currentGroup();
  if(!groupParts(m,g).some(p=>p.number===number))return;
- const a=userMarks(state.mid,state.page);
+ const point=state.picker;
+ if(effectiveMarks(g,m).some(mark=>mark.number===number&&!sameSpot(mark,point))){
+  showToast('Diese Artikelnummer ist in dieser Zeichnung bereits verknüpft.');
+  return;
+ }
+ const a=userMarks(state.mid,state.page).filter(mark=>mark.number!==number&&!sameSpot(mark,point));
  a.push({number,x:state.picker.x,y:state.picker.y,source:'manual'});
  mapping[key]=a;state.picker=null;state.mapMode=false;
  store();closeSheet();render();showToast(`Position ${number} verknüpft.`);
